@@ -40,6 +40,10 @@ class DatastreamHandler(scheme: String, host: String, port: Integer, path: Strin
           case 204 =>
             Success
           case 400 =>
+            logger.warn("Malformed request rejected by Datastream")
+            Rejected
+          case 413 =>
+            logger.warn("Too large request rejected by Datastream")
             Rejected
           case _ =>
             logger.error(s"Unknown return value $status")

@@ -28,7 +28,6 @@ import uk.gov.hmrc.play.audit.model.{DataEvent, ExtendedDataEvent, MergedDataEve
 trait AuditSerialiserLike {
   def serialise(event: DataEvent): String
   def serialise(event: MergedDataEvent): String
-  def serialise(event: ExtendedDataEvent): String
   def serialise(event: AuditEvent): String
 }
 
@@ -70,11 +69,6 @@ class AuditSerialiser extends AuditSerialiserLike {
 
   override def serialise(event: MergedDataEvent): String = {
     log.info(s"Serialise a MergedDataEvent")
-    write(event)
-  }
-
-  override def serialise(event: ExtendedDataEvent): String = {
-    log.info(s"Serialise an ExtendedDataEvent")
     write(event)
   }
 

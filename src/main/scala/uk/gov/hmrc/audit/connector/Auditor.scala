@@ -31,6 +31,9 @@ trait AuditConnector {
   @deprecated("Use sendEvent(AuditEvent) for new code")
   def sendEvent(event: DataEvent)(implicit ec: ExecutionContext): Future[AuditResult]
 
+  @deprecated("Provided as an alias to minimise code changes. Use sendEvent(AuditEvent) instead.")
+  def sendMergedEvent(event: AuditEvent)(implicit ec: ExecutionContext): Future[AuditResult] = sendEvent(event)
+
   @deprecated("Use sendEvent(AuditEvent) for new code")
   def sendMergedEvent(event: MergedDataEvent)(implicit ec: ExecutionContext): Future[AuditResult]
 }
@@ -74,3 +77,5 @@ class AuditorImpl extends AuditConnector {
     }
   }
 }
+
+object AuditConnector extends AuditorImpl

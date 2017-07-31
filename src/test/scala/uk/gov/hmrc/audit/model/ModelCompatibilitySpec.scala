@@ -39,38 +39,38 @@ class ModelCompatibilitySpec extends Specification {
     }
 
     "Break out the request id from the tags" in {
-      val event = buildWithTag(HeaderNames.xRequestId, requestId)
+      val event = buildWithTags(HeaderNames.xRequestId -> requestId)
       validateEmptyDetails(event)
       event.requestID mustEqual requestId
     }
 
     "Break out the session id from the tags" in {
-      val event = buildWithTag(HeaderNames.xSessionId, sessionId)
+      val event = buildWithTags(HeaderNames.xSessionId -> sessionId)
       validateEmptyDetails(event)
       event.sessionID.get mustEqual sessionId
     }
 
     "Break out the Authorization header from the tags" in {
-      val event = buildWithTag(HeaderNames.authorisation, authorisationToken)
+      val event = buildWithTags(HeaderNames.authorisation -> authorisationToken)
       validateEmptyDetails(event)
       event.authorisationToken.get mustEqual authorisationToken
     }
 
     "Break out a simple path from the tags" in {
-      val event = buildWithTag(LegacyTagNames.path, "/some/thing")
+      val event = buildWithTags(LegacyTagNames.path -> "/some/thing")
       validateEmptyDetails(event)
       event.path mustEqual "/some/thing"
     }
 
     "Break out a path with a querystring from the tags" in {
-      val event = buildWithTag(LegacyTagNames.path, "/some/thing?some=thing&other=thing")
+      val event = buildWithTags(LegacyTagNames.path -> "/some/thing?some=thing&other=thing")
       validateEmptyDetails(event)
       event.path mustEqual "/some/thing"
       event.queryString.get mustEqual "some=thing&other=thing"
     }
 
     "Hande a path with a querystring of zero length from the tags" in {
-      val event = buildWithTag(LegacyTagNames.path, "/some/thing?")
+      val event = buildWithTags(LegacyTagNames.path -> "/some/thing?")
       validateEmptyDetails(event)
       event.path mustEqual "/some/thing"
       event.queryString must beNone
@@ -80,10 +80,20 @@ class ModelCompatibilitySpec extends Specification {
       val tags = Map[String, String]("one" -> "two")
       DataEvent("source", "type", uuid, tags, generatedAt = dateTime) must throwA[IllegalArgumentException]
     }
+
+    "Break out a clientIP and clientPort from the tags" in {
+      val event = buildWithTags(
+        LegacyTagNames.clientIP -> "10.1.2.3",
+        LegacyTagNames.clientPort -> "1234"
+      )
+      validateEmptyDetails(event)
+      event.clientIP mustEqual "10.1.2.3"
+      event.clientPort mustEqual 1234
+    }
   }
 
-  def buildWithTag(key: String, value: String): AuditEvent = {
-    val tags = Map[String, String](HeaderNames.xRequestId -> requestId, key -> value)
+  def buildWithTags(suppliedTags: (String, String)*): AuditEvent = {
+    val tags = Map[String, String](HeaderNames.xRequestId -> requestId) ++ suppliedTags
     DataEvent("source", "type", uuid, tags, generatedAt = dateTime)
   }
 

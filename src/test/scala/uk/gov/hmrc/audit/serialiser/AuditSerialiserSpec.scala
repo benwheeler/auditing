@@ -38,16 +38,8 @@ class AuditSerialiserSpec extends Specification {
       val requestDataCall = DataCall(Map[String, String](("foo", "bar")), Map[String, String](("one", "two")), dateTime)
       val responseDataCall = DataCall(Map[String, String](("blah", "baz")), Map[String, String](("three", "four")), dateTime)
       val mergedEvent = MergedDataEvent("source", "type", uuid, requestDataCall, responseDataCall)
-      val expectedResult = s"""{"auditSource":"source","auditType":"type","eventId":"$uuid","request":{"tags":{"foo":"bar"},"detail":{"one":"two"},"generatedAt":"$dateString"},"response":{"tags":{"blah":"baz"},"detail":{"three":"four"},"generatedAt":"$dateString"}"""
+      val expectedResult = s"""{"auditSource":"source","auditType":"type","eventId":"$uuid","request":{"tags":{"foo":"bar"},"detail":{"one":"two"},"generatedAt":"$dateString"},"response":{"tags":{"blah":"baz"},"detail":{"three":"four"},"generatedAt":"$dateString"}}"""
       serialiser.serialise(mergedEvent) must be equalTo expectedResult
-    }
-  }
-
-  "When serialising a ExtendedDataEvent the result" should {
-    "Populate all supplied fields in the correct format" in {
-      val dataEvent = ExtendedDataEvent("source", "type")
-      val expectedResult = s"""{"auditSource":"source","auditType":"type","eventId":"$uuid","tags":{},"detail":{"value":""},"generatedAt":"$dateString"}"""
-      serialiser.serialise(dataEvent) must be equalTo expectedResult
     }
   }
 }

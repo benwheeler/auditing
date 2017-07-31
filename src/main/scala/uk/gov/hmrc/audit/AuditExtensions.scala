@@ -3,8 +3,11 @@ package uk.gov.hmrc.audit
 import java.util.UUID
 
 import org.joda.time.DateTime
-import uk.gov.hmrc.audit.model.AuditEvent
-import uk.gov.hmrc.http.HeaderCarrier
+import uk.gov.hmrc.audit.connector.AuditConnector
+import uk.gov.hmrc.audit.model.{AuditEvent, Enrolment, Payload}
+import uk.gov.hmrc.http.{HeaderCarrier, HeaderNames}
+
+import scala.concurrent.{ExecutionContext, Future}
 
 /**
   * The intent of these extensions are to provide quite a lot of shortcuts for
@@ -17,19 +20,21 @@ import uk.gov.hmrc.http.HeaderCarrier
   */
 trait AuditExtensions {
 
-  def auditEvent(auditSource: String, auditType: String, path: String,
-    method: String, queryString: Option[String] = None,
-    detail: Map[String, AnyVal] = Map()
+  def send(event: AuditEvent)(implicit auditConnector: AuditConnector, ec: ExecutionContext): Future[AuditResult] = {
+    auditConnector.sendEvent(event)
+  }
+
+  def auditEvent(auditSource: String, auditType: String, method: String,
+    pathString: String, detail: Map[String, _] = Map(), identifiers: Option[Map[String, String]] = None,
+    enrolments: Option[List[Enrolment]] = None, requestHeaders: Option[Map[String, String]] = None,
+    requestPayload: Option[Payload] = None, responseHeaders: Option[Map[String, String]] = None,
+    responsePayload: Option[Payload] = None, responseStatus: Option[Int] = None,
+    clientIP: Option[String] = None, clientPort: Option[Int] = None
   )(implicit hc: HeaderCarrier): AuditEvent = {
 
-    if (hc.requestId.isEmpty) throw new IllegalArgumentException("Request ID must be defined.")
+    if (hc.requestId.getOrElse("").equals("-")) throw new IllegalArgumentException("Request ID must be defined.")
 
-    val requestHeaders = None
-    val identifiers = None
-    val enrolments = None
-    val filteredDetail = None
-    val responseHeaders = None
-    val responseStatus = None
+    val pathTuple = AuditEvent.splitPath(pathString)
 
     AuditEvent(auditSource,
       auditType,
@@ -37,37 +42,86 @@ trait AuditExtensions {
       newUUID,
       hc.requestId.get.value,
       hc.sessionId.flatMap(sessionId => Some(sessionId.value)),
-      path,
+      pathTuple._1,
       method,
-      queryString,
+      Option(pathTuple._2).filter(_.trim.nonEmpty),
+      clientIP.orElse(hc.trueClientIp.orElse(None)),
+      clientPort.orElse(hc.trueClientPort.flatMap(value => Some(value.toInt))),
       hc.authorization.flatMap(authorisation => Some(authorisation.value)),
-      requestHeaders,
-      None, // no request payload
-      identifiers,
+      collectRequestHeaders(requestHeaders.getOrElse(Map()), hc),
+      requestPayload,
+      collectIdentifiers(detail, identifiers.getOrElse(Map())),
       enrolments,
-      filteredDetail,
+      collectDetailWithoutIds(detail),
       responseHeaders,
       responseStatus,
-      None // no response payload
+      responsePayload
     )
     /*
-    authorization: Option[Authorization] = None,
-                         userId: Option[UserId] = None,
-                         token: Option[Token] = None,
-                         forwarded: Option[ForwardedFor] = None,
-                         sessionId: Option[SessionId] = None,
-                         requestId: Option[RequestId] = None,
-                         requestChain: RequestChain = RequestChain.init,
-                         nsStamp: Long = System.nanoTime(),
-                         extraHeaders: Seq[(String, String)] = Seq(),
-                         trueClientIp: Option[String] = None,
-                         trueClientPort: Option[String] = None,
-                         gaToken: Option[String] = None,
-                         gaUserId: Option[String] = None,
-                         deviceID: Option[String] = None,
-                         akamaiReputation: Option[AkamaiReputation] = None,
-                         otherHeaders: Seq[(String, String)] = Seq()
+     userId: Option[UserId] = None,
+     token: Option[Token] = None,
+     nsStamp: Long = System.nanoTime(),
+     trueClientIp: Option[String] = None,
+     trueClientPort: Option[String] = None,
+     gaToken: Option[String] = None,
+     gaUserId: Option[String] = None,
+     deviceID: Option[String] = None,
      */
+  }
+
+  private def collectIdentifiers(detail: Map[String, _], identifiers: Map[String, String]): Option[Map[String, String]] = {
+    val filteredIds = identifiers.filter(p => {
+      p._1.nonEmpty && nonEmpty(p._2)
+    }) ++ collectIdsFromDetail(detail)
+
+    if (filteredIds.isEmpty) None else Some(filteredIds)
+  }
+
+  private def collectIdsFromDetail(detail: Map[String, _]): Map[String, String] = {
+    detail.flatMap(p => {
+      if (AuditExtensions.detailsToIdentifiers.contains(p._1) && p._2.isInstanceOf[String]) {
+        val stringValue = p._2.asInstanceOf[String]
+        if (nonEmpty(stringValue)) {
+          Some((AuditExtensions.detailsToIdentifiers(p._1), stringValue))
+        } else {
+          None
+        }
+      } else {
+        None
+      }
+    })
+  }
+
+  private def collectDetailWithoutIds(detail: Map[String, _]): Option[Map[String, _]] = {
+    val filteredDetail = detail.filter(p => {
+      p._1.nonEmpty && !AuditExtensions.detailsToIdentifiers.contains(p._1) &&
+        (
+          (p._2.isInstanceOf[String] && nonEmpty(p._2.asInstanceOf[String])) ||
+            (p._2.isInstanceOf[Map[_, _]] && p._2.asInstanceOf[Map[_, _]].nonEmpty)
+        )
+    })
+
+    if (filteredDetail.isEmpty) None else Some(filteredDetail)
+  }
+
+  private def collectRequestHeaders(suppliedRequestHeaders: Map[String, String], hc: HeaderCarrier): Option[Map[String, String]] = {
+    val headers = (suppliedRequestHeaders ++ hc.extraHeaders ++ hc.otherHeaders ++
+      hc.forwarded.map(f => HeaderNames.xForwardedFor -> f.value) ++
+      hc.akamaiReputation.map(f => HeaderNames.akamaiReputation -> f.value)
+    ).filter(p => {
+      p._1.nonEmpty && !AuditExtensions.excludedRequestHeaders.contains(p._1) &&
+        p._2.nonEmpty && !p._2.trim.equals("-")
+    })
+
+    if (headers.isEmpty) None else Some(headers)
+  }
+
+  private def nonEmpty(value: String): Boolean = {
+    value.trim match {
+      case "" => false
+      case "-" => false
+      case _ => true
+    }
   }
 
   def now: DateTime = {
@@ -77,4 +131,14 @@ trait AuditExtensions {
   def newUUID: String = {
     UUID.randomUUID.toString
   }
+}
+
+object AuditExtensions {
+  val excludedRequestHeaders: Seq[String] = Seq(
+    // add any header exclusions here
+  )
+
+  val detailsToIdentifiers: Map[String, String] = Map(
+    "credId" -> "credID"
+  )
 }

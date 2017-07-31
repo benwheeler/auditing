@@ -22,21 +22,19 @@ class DatastreamHandlerUnitSpec extends Specification {
   }
 
   "Any Datastream response" should {
-    "Return Success for any response code less than 300" in {
-      Result.foreach(0 to 299) { code =>
-        datastreamHandler.sendEvent(code.toString) mustEqual Success
-      }
+    "Return Success for any response code of 204" in {
+      datastreamHandler.sendEvent("204") mustEqual Success
     }
 
-    "Return Failure for any response code of 300 to 399 or 500 to 599" in {
-      Result.foreach((300 to 399) ++ (500 to 599)) { code =>
+    "Return Failure for any response code of 3XX or 401-412 or 414-499 or 5XX" in {
+      Result.foreach((300 to 399) ++ (401 to 412) ++ (414 to 499) ++ (500 to 599)) { code =>
         val result = datastreamHandler.sendEvent(code.toString)
         result mustEqual Failure
       }
     }
 
-    "Return Rejected for any response code of 400 to 499" in {
-      Result.foreach(400 to 499) { code =>
+    "Return Rejected for any response code of 400 or 413" in {
+      Result.foreach(Seq(400, 413)) { code =>
         val result = datastreamHandler.sendEvent(code.toString)
         result mustEqual Rejected
       }

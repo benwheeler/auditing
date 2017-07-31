@@ -1,24 +1,5 @@
+package uk.gov.hmrc.audit.example
 
-# auditing
-
-[![Build Status](https://travis-ci.org/hmrc/auditing.svg?branch=master)](https://travis-ci.org/hmrc/auditing) [ ![Download](https://api.bintray.com/packages/hmrc/releases/auditing/images/download.svg) ](https://bintray.com/hmrc/releases/auditing/_latestVersion)
-
-This library contains code to facilitate creation of audit events and their publication to datastream.
-
-
-## Adding to your build
-
-In your SBT build add:
-
-```scala
-resolvers += Resolver.bintrayRepo("hmrc", "releases")
-
-libraryDependencies += "uk.gov.hmrc" %% "auditing" % "x.x.x"
-```
-
-## Usage
-
-```scala
 import org.joda.time.{DateTime, DateTimeZone}
 import uk.gov.hmrc.audit.AuditExtensions
 import uk.gov.hmrc.play.audit.AuditExtensions._
@@ -27,7 +8,11 @@ import uk.gov.hmrc.audit.model.{DataEvent, Enrolment, MergedDataEvent, Payload}
 import uk.gov.hmrc.http.HeaderCarrier
 import uk.gov.hmrc.play.audit.model.DataCall
 
+import scala.concurrent.ExecutionContext
+
 class AuditExtensionsExamples extends AuditExtensions {
+
+  implicit val ec: ExecutionContext = ExecutionContext.global
 
   // TODO How is this configured?
   implicit val auditConnector = AuditConnector
@@ -91,17 +76,7 @@ class AuditExtensionsExamples extends AuditExtensions {
 
     // The above legacy MergedDataEvent would look like the following with the new code
     send(auditEvent(appName, "SomeAuditType", method, path,
-      requestPayload = Some(Payload("{\"ohai\": \"gimmeh\"}", "application/json")),
-      responsePayload = Some(Payload("{\"icanhaz\": \"kthxbye\"}", "application/json"))))
+      requestPayload = Some(Payload("application/json", "{\"ohai\": \"gimmeh\"}")),
+      responsePayload = Some(Payload("application/json", "{\"icanhaz\": \"kthxbye\"}"))))
   }
 }
-```
-
-## Configuration
-
-**TODO** Add details here
-
-
-### License
-
-This code is open source software licensed under the [Apache 2.0 License]("http://www.apache.org/licenses/LICENSE-2.0.html").

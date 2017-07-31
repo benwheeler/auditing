@@ -1,85 +1,16 @@
 package uk.gov.hmrc.audit.model
 
-import java.util.UUID
+import java.net.URI
 
 import org.joda.time.DateTime
 import uk.gov.hmrc.http.HeaderNames
-import uk.gov.hmrc.time.DateTimeUtils
-
-object LegacyTagNames {
-  val path = "path"
-}
-
-object LegacyDetailNames {
-  val method = "method"
-  val statusCode = "method"
-  val requestBody = "requestBody"
-  val responseMessage = "responseMessage"
-  val akamaiReputation = "Akamai-Reputation"
-}
-
-/**
-  * Provides backward compatibility with the old DataEvent case class. Designed
-  * to be a drop in replacement for uk.gov.hmrc.play.audit.model.DataEvent#apply().
-  */
-object DataEvent {
-  def apply(auditSource: String,
-    auditType: String,
-    eventId: String = UUID.randomUUID().toString,
-    tags: Map[String, String] = Map.empty,
-    detail: Map[String, String] = Map.empty,
-    generatedAt: DateTime = DateTimeUtils.now): AuditEvent = {
-
-    val sessionId = if (tags.contains(HeaderNames.xSessionId)) Some(tags(HeaderNames.xSessionId)) else None
-    val authorisationToken = if (tags.contains(HeaderNames.authorisation)) Some(tags(HeaderNames.authorisation)) else None
-
-    val pathTag = tags.getOrElse("path", "")
-
-    val questionIndex = pathTag.indexOf("?")
-    val queryString = if (questionIndex == -1 || questionIndex == pathTag.length - 1) None else Some(pathTag.substring(questionIndex + 1))
-    val path = if (questionIndex == -1) pathTag else pathTag.substring(0, questionIndex)
-
-    val requestId = tags.getOrElse(HeaderNames.xRequestId, "")
-    if (requestId == "") {
-      // TODO Can we treat this as an error?
-      throw new IllegalArgumentException(s"Tags must contain a valid ${HeaderNames.xRequestId}.")
-    }
-
-    AuditEvent(auditSource,
-      auditType,
-      generatedAt,
-      eventId,
-      requestId,
-      sessionId,
-      path,
-      "method",
-      queryString,
-      authorisationToken,
-      None,
-      None,
-      None,
-      None,
-      Some(detail),
-      None,
-      Some(1), // responseStatus
-      None
-    ).withTags(tags.filterNot(tag => tag._1 match {
-      // FIXME There must be a better was to do this... see below in the withTags method for the same concept.
-      case HeaderNames.xSessionId => true
-      case HeaderNames.authorisation => true
-      case LegacyTagNames.path => true
-      case HeaderNames.xRequestId => true
-      case _ => false
-    }).toArray:_*)
-  }
-}
 
 /**
   * Class used for all audit events.
   *
-  * This is a replacement for uk.gov.hmrc.play.audit.model.AuditEvent.
+  * This is a replacement for all the uk.gov.hmrc.play.audit.model case classes.
   */
-case class AuditEvent(
+case class AuditEvent (
   auditSource: String,
   auditType: String,
 
@@ -91,6 +22,8 @@ case class AuditEvent(
   path: String,
   method: String,
   queryString: Option[String],
+  clientIP: Option[String],
+  clientPort: Option[Int],
   authorisationToken: Option[String],
 
   requestHeaders: Option[Map[String, String]],
@@ -105,7 +38,10 @@ case class AuditEvent(
   responsePayload: Option[Payload],
   version: Int = 1) {
 
-  def withDetail(moreDetail: (String, String)*): AuditEvent = copy(detail = Some(detail.getOrElse(Map[String, AnyVal]()) ++ moreDetail))
+  @deprecated("Use the constructor instead of this method")
+  def withDetail(moreDetail: (String, String)*): AuditEvent = {
+    copy(detail = Some(detail.getOrElse(Map[String, AnyVal]()) ++ moreDetail))
+  }
 
   @deprecated("Supports legacy code which still uses the tags grouping")
   def withTags(moreTags: (String, String)*): AuditEvent = {
@@ -118,6 +54,13 @@ case class AuditEvent(
       }
     })
     this
+  }
+}
+
+object AuditEvent {
+  def splitPath(pathString: String): (String, String) = {
+    val pathUrl = new URI(pathString)
+    (pathUrl.getPath, pathUrl.getQuery)
   }
 }
 
@@ -136,9 +79,9 @@ case class ImplicitEvent(
   path: String,
   method: String,
   queryString: Option[String],
-  clientIP: String,
-  clientPort: Int,
-  receivingIP: String,
+  clientIP: Option[String],
+  clientPort: Option[Int],
+  receivingIP: Option[String],
   authorisationToken: Option[String],
 
   clientHeaders: Option[Map[String, String]],
@@ -157,13 +100,29 @@ case class ImplicitEvent(
   version: Int = 1
 )
 
-case class Payload(
-  `type`: String,
+case class Payload private (
+  payloadType: String,
   contents: Option[String],
   reference: Option[String]
 )
 
+object Payload {
+  def apply(payloadType: String, contents: String): Payload = {
+    assertPayloadLength(payloadType)
+    new Payload(payloadType, Some(contents), None)
+  }
+
+  def apply(payloadType: String, reference: Option[String] = None): Payload = {
+    assertPayloadLength(payloadType)
+    new Payload(payloadType, None, reference)
+  }
+
+  private def assertPayloadLength(payloadType: String): Unit = {
+    if (payloadType.length > 100) throw new IllegalArgumentException("Payload type too long.")
+  }
+}
+
 case class Enrolment(
-  name: String,
-  value: String
+  serviceName: String,
+  identifiers: Map[String, String]
 )

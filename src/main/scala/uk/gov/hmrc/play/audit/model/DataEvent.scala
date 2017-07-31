@@ -21,7 +21,7 @@ import java.util.UUID
 import org.joda.time.DateTime
 import uk.gov.hmrc.time.DateTimeUtils
 
-@deprecated
+@deprecated("Use uk.gov.hmrc.audit.model.AuditEvent instead.")
 sealed trait AuditEvent {
   def auditSource: String
   def auditType: String
@@ -30,8 +30,7 @@ sealed trait AuditEvent {
   def generatedAt: DateTime
 }
 
-@deprecated("Use class uk.gov.hmrc.audit.model.DataEvent for legacy code. " +
-  "Use uk.gov.hmrc.audit.model.AuditEvent for new code.")
+@deprecated("Use uk.gov.hmrc.audit.model.AuditEvent instead.")
 case class DataEvent(override val auditSource: String,
                      override val auditType: String,
                      override val eventId: String = UUID.randomUUID().toString,
@@ -44,7 +43,7 @@ case class DataEvent(override val auditSource: String,
   def withTags(moreTags: (String, String)*): DataEvent = copy(tags = tags ++ moreTags)
 }
 
-@deprecated
+@deprecated("Support for this type has been removed.")
 case class ExtendedDataEvent(override val auditSource: String,
                              override val auditType: String,
                              override val eventId: String = UUID.randomUUID().toString,
@@ -52,12 +51,12 @@ case class ExtendedDataEvent(override val auditSource: String,
                              detail: String = "",
                              override val generatedAt: DateTime = DateTimeUtils.now) extends AuditEvent
 
-@deprecated
+@deprecated("Use uk.gov.hmrc.audit.model.AuditEvent instead.")
 case class DataCall(tags: Map[String, String],
                     detail: Map[String, String],
                     generatedAt: DateTime)
 
-@deprecated
+@deprecated("Use uk.gov.hmrc.audit.model.AuditEvent instead.")
 case class MergedDataEvent(auditSource: String,
                            auditType: String,
                            eventId: String = UUID.randomUUID().toString,
