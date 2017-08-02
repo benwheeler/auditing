@@ -3,22 +3,20 @@ package uk.gov.hmrc.audit.model
 import java.util.UUID
 
 import org.joda.time.DateTime
-import uk.gov.hmrc.http.HeaderNames
+import uk.gov.hmrc.http.{HeaderCarrier, HeaderNames}
 import uk.gov.hmrc.play.audit.model.DataCall
 import uk.gov.hmrc.time.DateTimeUtils
 
-/**
- * Tag names that will be excluded from being copied into the details grouping.
- */
-object LegacyTagNames {
+object TagNames {
   val path = "path"
   val clientIP = "clientIP"
   val clientPort = "clientPort"
   val transactionName = "transactionName"
-  val requestID = "X-Request-ID"
-  val sessionID = "X-Session-ID"
+  val requestID: String = HeaderNames.xRequestId
+  val sessionID: String = HeaderNames.xSessionId
+  val authorisation: String = HeaderNames.authorisation
 
-  val excludedFromDetail = Seq(path, clientIP, clientPort, transactionName, requestID, sessionID)
+  val excludedFromDetail = Seq(path, clientIP, clientPort, transactionName, requestID, sessionID, authorisation)
 }
 
 object LegacyDetailNames {
@@ -39,7 +37,7 @@ object MergedDataEvent {
     auditType: String,
     eventId: String = UUID.randomUUID().toString,
     request: DataCall,
-    response: DataCall): AuditEvent = {
+    response: DataCall)(implicit hc: HeaderCarrier = HeaderCarrier()): AuditEvent = {
 
     val requestId = ""
     val sessionId = ""
@@ -50,24 +48,10 @@ object MergedDataEvent {
     val detail = Map[String, String]()
     AuditEvent(auditSource,
       auditType,
-      DateTime.now(),
-      eventId,
-      requestId,
-      Some(sessionId),
-      path,
       method,
-      Some(queryString),
-      None,
-      None,
-      Some(authorisationToken),
-      None,
-      None,
-      None,
-      None,
-      Some(detail),
-      None,
-      Some(1), // responseStatus
-      None
+      path,
+      detail = detail,
+      eventID = eventId
     )
   }
 }
@@ -83,39 +67,26 @@ object DataEvent {
     eventId: String = UUID.randomUUID().toString,
     tags: Map[String, String] = Map.empty,
     detail: Map[String, String] = Map.empty,
-    generatedAt: DateTime = DateTimeUtils.now): AuditEvent = {
+    generatedAt: DateTime = DateTimeUtils.now)(implicit hc: HeaderCarrier = HeaderCarrier()): AuditEvent = {
 
-    val sessionId = if (tags.contains(HeaderNames.xSessionId)) Some(tags(HeaderNames.xSessionId)) else None
-    val authorisationToken = if (tags.contains(HeaderNames.authorisation)) Some(tags(HeaderNames.authorisation)) else None
-    val requestId = tags.getOrElse(HeaderNames.xRequestId, "")
+    val sessionId = if (tags.contains(TagNames.sessionID)) Some(tags(TagNames.sessionID)) else None
+    val authorisationToken = if (tags.contains(TagNames.authorisation)) Some(tags(TagNames.authorisation)) else None
+    val requestId = Some(tags.getOrElse(TagNames.requestID, ""))
+    val clientIP = if (tags.contains(TagNames.clientIP)) Some(tags(TagNames.clientIP)) else None
+    val clientPort = if (tags.contains(TagNames.clientPort)) Some(tags(TagNames.clientPort).toInt) else None
 
     AuditEvent(auditSource,
       auditType,
-      generatedAt,
-      eventId,
-      requestId,
-      sessionId,
-      tags.getOrElse("path", ""),
       "method",
-      None,
-      None,
-      None,
-      authorisationToken,
-      None,
-      None,
-      None,
-      None,
-      Some(detail),
-      None,
-      Some(1), // responseStatus
-      None
-    ).withTags(tags.filterNot(tag => tag._1 match {
-      // FIXME There must be a better was to do this... see below in the withTags method for the same concept.
-      case HeaderNames.xSessionId => true
-      case HeaderNames.authorisation => true
-      case LegacyTagNames.path => true
-      case HeaderNames.xRequestId => true
-      case _ => false
-    }).toArray:_*)
+      tags.getOrElse("path", ""),
+      generatedAt,
+      detail,
+      eventID = eventId,
+      requestID = requestId,
+      sessionID = sessionId,
+      authorisationToken = authorisationToken,
+      clientIP = clientIP,
+      clientPort = clientPort
+    ).withTags(tags.filterNot(tag => TagNames.excludedFromDetail.contains(tag._1)).toArray:_*)
   }
 }

@@ -3,12 +3,11 @@ package uk.gov.hmrc.audit.model
 import java.util.UUID
 
 import org.joda.time.DateTime
-import org.specs2.matcher.MatchResult
 import org.specs2.mutable.Specification
 import uk.gov.hmrc.http.HeaderNames
 
 // TODO There are more tests to do, especially around the withTags and withDetail methods.
-class ModelCompatibilitySpec extends Specification {
+class DataEventCompatibilitySpec extends Specification {
 
   val uuid: String = UUID.randomUUID().toString
   val requestId: String = "request-" + UUID.randomUUID().toString
@@ -40,38 +39,38 @@ class ModelCompatibilitySpec extends Specification {
 
     "Break out the request id from the tags" in {
       val event = buildWithTags(HeaderNames.xRequestId -> requestId)
-      validateEmptyDetails(event)
+      event.detail must beNone
       event.requestID mustEqual requestId
     }
 
     "Break out the session id from the tags" in {
       val event = buildWithTags(HeaderNames.xSessionId -> sessionId)
-      validateEmptyDetails(event)
+      event.detail must beNone
       event.sessionID.get mustEqual sessionId
     }
 
     "Break out the Authorization header from the tags" in {
       val event = buildWithTags(HeaderNames.authorisation -> authorisationToken)
-      validateEmptyDetails(event)
+      event.detail must beNone
       event.authorisationToken.get mustEqual authorisationToken
     }
 
     "Break out a simple path from the tags" in {
-      val event = buildWithTags(LegacyTagNames.path -> "/some/thing")
-      validateEmptyDetails(event)
+      val event = buildWithTags(TagNames.path -> "/some/thing")
+      event.detail must beNone
       event.path mustEqual "/some/thing"
     }
 
     "Break out a path with a querystring from the tags" in {
-      val event = buildWithTags(LegacyTagNames.path -> "/some/thing?some=thing&other=thing")
-      validateEmptyDetails(event)
+      val event = buildWithTags(TagNames.path -> "/some/thing?some=thing&other=thing")
+      event.detail must beNone
       event.path mustEqual "/some/thing"
       event.queryString.get mustEqual "some=thing&other=thing"
     }
 
     "Hande a path with a querystring of zero length from the tags" in {
-      val event = buildWithTags(LegacyTagNames.path -> "/some/thing?")
-      validateEmptyDetails(event)
+      val event = buildWithTags(TagNames.path -> "/some/thing?")
+      event.detail must beNone
       event.path mustEqual "/some/thing"
       event.queryString must beNone
     }
@@ -83,22 +82,17 @@ class ModelCompatibilitySpec extends Specification {
 
     "Break out a clientIP and clientPort from the tags" in {
       val event = buildWithTags(
-        LegacyTagNames.clientIP -> "10.1.2.3",
-        LegacyTagNames.clientPort -> "1234"
+        TagNames.clientIP -> "10.1.2.3",
+        TagNames.clientPort -> "1234"
       )
-      validateEmptyDetails(event)
-      event.clientIP mustEqual "10.1.2.3"
-      event.clientPort mustEqual 1234
+      event.detail must beNone
+      event.clientIP.get mustEqual "10.1.2.3"
+      event.clientPort.get mustEqual 1234
     }
   }
 
   def buildWithTags(suppliedTags: (String, String)*): AuditEvent = {
     val tags = Map[String, String](HeaderNames.xRequestId -> requestId) ++ suppliedTags
     DataEvent("source", "type", uuid, tags, generatedAt = dateTime)
-  }
-
-  def validateEmptyDetails(event: AuditEvent): MatchResult[AnyRef] = {
-    event.detail mustNotEqual None
-    event.detail.get must beEmpty
   }
 }

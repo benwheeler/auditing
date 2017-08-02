@@ -5,12 +5,11 @@ import java.util.UUID
 import org.joda.time.DateTime
 import org.specs2.execute.Result
 import org.specs2.mutable.Specification
-import uk.gov.hmrc.audit.model.{Enrolment, Payload}
+import uk.gov.hmrc.audit.model.{AuditEvent, Enrolment, Payload}
 import uk.gov.hmrc.http._
 
 class AuditExtensionsSpec extends Specification with AuditExtensions {
 
-  val eventID: String = UUID.randomUUID.toString
   val requestID: String = UUID.randomUUID.toString
   val sessionID: String = UUID.randomUUID.toString
   val auditSource: String = "source"
@@ -27,19 +26,15 @@ class AuditExtensionsSpec extends Specification with AuditExtensions {
     authorization = Some(Authorization(authorisationToken))
   )
 
-  override def now: DateTime = dateTime
-
-  override def newUUID: String = eventID
-
   "An audit event" should {
     "Contain the basic fields" in {
-      val event = auditEvent(auditSource, auditType, method, path)
+      val event: AuditEvent = auditEvent(auditSource, auditType, method, path)
       event.auditSource mustEqual auditSource
       event.auditType mustEqual auditType
       event.path mustEqual path
       event.method mustEqual method
-      event.generatedAt mustEqual dateTime
-      event.eventID mustEqual eventID
+      event.generatedAt.isBeforeNow must beTrue
+      event.eventID must beMatching("[a-z0-9-]+")
     }
 
     "Contain the request ID from the header carrier" in {
