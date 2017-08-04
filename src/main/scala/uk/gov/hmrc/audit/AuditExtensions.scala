@@ -34,13 +34,3 @@ trait AuditExtensions {
     clientPort = clientPort
   )
 }
-
-object AuditExtensions {
-  val excludedRequestHeaders: Seq[String] = Seq(
-    // add any header exclusions here
-  )
-
-  val detailsToIdentifiers: Map[String, String] = Map(
-    "credId" -> "credID"
-  )
-}

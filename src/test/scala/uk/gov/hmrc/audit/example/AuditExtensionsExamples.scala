@@ -43,10 +43,10 @@ class AuditExtensionsExamples extends AuditExtensions {
     // A legacy DataEvent with tags and details (this will still work)
     val legacyDataEvent = DataEvent(
       auditType = "SomeAuditType",
-      tags = hc.toAuditTags("some_transaction_name", path),
+      tags = hc.toAuditTags("some_transaction_name", path) + ("aTagField" -> "with a tag value"),
       detail = hc.toAuditDetails()
         ++ Map("aDetailField" -> "with a detail value"),
-      auditSource = appName).withTags("aTagField" -> "with a tag value")
+      auditSource = appName)
     auditConnector.sendEvent(legacyDataEvent)
 
     // The above legacy DataEvent would look like the following with the new code

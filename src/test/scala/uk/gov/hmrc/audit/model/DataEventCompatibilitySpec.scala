@@ -4,9 +4,7 @@ import java.util.UUID
 
 import org.joda.time.DateTime
 import org.specs2.mutable.Specification
-import uk.gov.hmrc.http.HeaderNames
 
-// TODO There are more tests to do, especially around the withTags and withDetail methods.
 class DataEventCompatibilitySpec extends Specification {
 
   val uuid: String = UUID.randomUUID().toString
@@ -18,8 +16,8 @@ class DataEventCompatibilitySpec extends Specification {
   "When creating a DataEvent the resulting object" should {
     "Have all fields supplied in the apply function" in {
       val tags = Map[String, String](
-        HeaderNames.xRequestId -> requestId,
-        HeaderNames.xSessionId -> sessionId,
+        TagNames.requestID -> requestId,
+        TagNames.sessionID -> sessionId,
         "one" -> "two")
       val detail = Map[String, String]("three" -> "four")
       val auditEvent = DataEvent("source", "type", uuid, tags, detail, dateTime)
@@ -37,20 +35,37 @@ class DataEventCompatibilitySpec extends Specification {
       auditEvent.detail.get("three") mustEqual "four"
     }
 
+    "Exclude fields supplied with a value of \"-\"" in {
+      val tags = Map[String, String](
+        TagNames.requestID -> requestId,
+        TagNames.sessionID -> "-",
+        TagNames.authorisation -> "-",
+        TagNames.clientIP -> "-",
+        TagNames.clientPort -> "-",
+        "emptyTag" -> "-"
+      )
+      val detail = Map[String, String]("emptyField" -> "-")
+      val auditEvent = DataEvent("source", "type", uuid, tags, detail, dateTime)
+
+      auditEvent.requestID mustEqual requestId
+      auditEvent.sessionID must beNone
+      auditEvent.detail must beNone
+    }
+
     "Break out the request id from the tags" in {
-      val event = buildWithTags(HeaderNames.xRequestId -> requestId)
+      val event = buildWithTags(TagNames.requestID -> requestId)
       event.detail must beNone
       event.requestID mustEqual requestId
     }
 
     "Break out the session id from the tags" in {
-      val event = buildWithTags(HeaderNames.xSessionId -> sessionId)
+      val event = buildWithTags(TagNames.sessionID -> sessionId)
       event.detail must beNone
       event.sessionID.get mustEqual sessionId
     }
 
     "Break out the Authorization header from the tags" in {
-      val event = buildWithTags(HeaderNames.authorisation -> authorisationToken)
+      val event = buildWithTags(TagNames.authorisation -> authorisationToken)
       event.detail must beNone
       event.authorisationToken.get mustEqual authorisationToken
     }
@@ -92,7 +107,7 @@ class DataEventCompatibilitySpec extends Specification {
   }
 
   def buildWithTags(suppliedTags: (String, String)*): AuditEvent = {
-    val tags = Map[String, String](HeaderNames.xRequestId -> requestId) ++ suppliedTags
+    val tags = Map[String, String](TagNames.requestID -> requestId) ++ suppliedTags
     DataEvent("source", "type", uuid, tags, generatedAt = dateTime)
   }
 }
