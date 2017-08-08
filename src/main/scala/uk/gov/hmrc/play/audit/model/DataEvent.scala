@@ -16,40 +16,23 @@
 
 package uk.gov.hmrc.play.audit.model
 
-import java.util.UUID
-
 import org.joda.time.DateTime
-import uk.gov.hmrc.time.DateTimeUtils
 
 @deprecated("Use uk.gov.hmrc.audit.model.AuditEvent instead.")
-sealed trait AuditEvent {
-  def auditSource: String
-  def auditType: String
-  def eventId: String
-  def tags: Map[String, String]
-  def generatedAt: DateTime
-}
+case class DataEvent(auditSource: String,
+                     auditType: String,
+                     eventId: String,
+                     tags: Map[String, String],
+                     detail: Map[String, String],
+                     generatedAt: DateTime)
 
-@deprecated("Use uk.gov.hmrc.audit.model.AuditEvent instead.")
-case class DataEvent(override val auditSource: String,
-                     override val auditType: String,
-                     override val eventId: String = UUID.randomUUID().toString,
-                     override val tags: Map[String, String] = Map.empty,
-                     detail: Map[String, String] = Map.empty,
-                     override val generatedAt: DateTime = DateTimeUtils.now) extends AuditEvent {
-
-  def withDetail(moreDetail: (String, String)*): DataEvent = copy(detail = detail ++ moreDetail)
-
-  def withTags(moreTags: (String, String)*): DataEvent = copy(tags = tags ++ moreTags)
-}
-
-@deprecated("Support for this type has been removed.")
-case class ExtendedDataEvent(override val auditSource: String,
-                             override val auditType: String,
-                             override val eventId: String = UUID.randomUUID().toString,
-                             override val tags: Map[String, String] = Map.empty,
+@deprecated("Support for this type has been removed due to Play dependency.")
+case class ExtendedDataEvent(auditSource: String,
+                             auditType: String,
+                             eventId: String,
+                             tags: Map[String, String],
                              detail: String = "",
-                             override val generatedAt: DateTime = DateTimeUtils.now) extends AuditEvent
+                             generatedAt: DateTime)
 
 @deprecated("Use uk.gov.hmrc.audit.model.AuditEvent instead.")
 case class DataCall(tags: Map[String, String],
@@ -59,6 +42,6 @@ case class DataCall(tags: Map[String, String],
 @deprecated("Use uk.gov.hmrc.audit.model.AuditEvent instead.")
 case class MergedDataEvent(auditSource: String,
                            auditType: String,
-                           eventId: String = UUID.randomUUID().toString,
+                           eventId: String,
                            request: DataCall,
                            response: DataCall)
